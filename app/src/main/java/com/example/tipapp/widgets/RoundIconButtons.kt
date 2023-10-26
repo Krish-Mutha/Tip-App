@@ -33,8 +33,9 @@ fun RoundIconButtons(
             .clickable { onClick.invoke() }
             .then(IconbuttonSizeModifier),
         shape = CircleShape,
-        //Color = backgroundColor,
-        elevation = CardDefaults.elevatedCardElevation()
+        colors = CardDefaults.cardColors(containerColor = backgroundColor),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = elevation)
     ) {
         Icon(imageVector=imageVector ,
             contentDescription= "Plus or Minus icon",
