@@ -39,18 +39,17 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.tipapp.components.InputField
 import com.example.tipapp.ui.theme.TipAppTheme
+import com.example.tipapp.util.calculateTotalPerPerson
+import com.example.tipapp.util.calculateTotalTip
 import com.example.tipapp.widgets.RoundIconButtons
 
-
+@ExperimentalComposeUiApi
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            TipAppTheme {
-                MyApp{
+            MyApp{
                     MainContent()
-                }
-
             }
         }
     }
@@ -58,10 +57,12 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MyApp(content: @Composable () -> Unit){
-    Surface(
-        color = MaterialTheme.colorScheme.background
-    ) {
-        content()
+    TipAppTheme {
+        Surface(
+            color = MaterialTheme.colorScheme.background
+        ) {
+            content()
+        }
     }
 }
 
@@ -70,6 +71,7 @@ fun MyApp(content: @Composable () -> Unit){
 fun TopHeader(totalPerPerson: Double = 134.0){
     Surface(
         Modifier
+            .padding(15.dp)
             .fillMaxWidth()
             .height(150.dp)
             .clip(shape = RoundedCornerShape(corner = CornerSize(12.dp))),
@@ -84,7 +86,7 @@ fun TopHeader(totalPerPerson: Double = 134.0){
             val total = "%.2f".format(totalPerPerson)
             Text(
                 text = "Total Per Person",
-                style = MaterialTheme.typography.headlineSmall
+                style = MaterialTheme.typography.headlineLarge
             )
             Text(
                 text = "$$total",
@@ -100,9 +102,8 @@ fun TopHeader(totalPerPerson: Double = 134.0){
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun MainContent(){
-    BillForm(){ billAmt ->
-        Log.d("AMT", "MainContent: $billAmt ")
-    }
+    BillForm(){}
+
 }
 
 
@@ -111,11 +112,11 @@ fun MainContent(){
 fun BillForm(
     modifier: Modifier =   Modifier,
              onValChange: (String) -> Unit ={}
-             ){
-    val totalBillState = remember{
+             ) {
+    val totalBillState = remember {
         mutableStateOf("")
     }
-    val validState = remember(totalBillState.value){
+    val validState = remember(totalBillState.value) {
         totalBillState.value.trim().isNotEmpty()
     }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -124,105 +125,159 @@ fun BillForm(
         mutableStateOf(0f)
     }
 
-    Surface(
-        Modifier
-            .padding(2.dp)
-            .fillMaxWidth(),
-        shape = RoundedCornerShape(CornerSize(8.dp)),
-        border = BorderStroke(width = 1.dp,color = Color.LightGray)
-    ) {
-        Column (
-            Modifier
-                .padding(6.dp),
-            horizontalAlignment = Alignment.Start,
-            verticalArrangement = Arrangement.Top
-        ){
-            InputField(
-                Modifier
-                    .padding(2.dp)
-                    .fillMaxWidth(),
-                valueState = totalBillState,
-                labelId = "Enter Bill",
-                enabled = true,
-                isSingleLine = true,
-                onAction = KeyboardActions {
-                    if(!validState) return@KeyboardActions
-                    onValChange(totalBillState.value.trim())
+    val tipPercentage = (sliderPositionState.value * 100).toInt()
 
-                    keyboardController?.hide()
-                }
-            )
-           // if(validState){
-                Row (
-                    Modifier
-                        .padding(3.dp),
-                    horizontalArrangement = Arrangement.Start
-                ){
-                    Text(text = "Split"
-                    ,Modifier.align(Alignment.CenterVertically)
-                        )
-
-                    Spacer(modifier = Modifier.width(120.dp))
-
-                    Row (
-                        Modifier
-                            .padding(horizontal = 3.dp),
-                        horizontalArrangement = Arrangement.End
-                    ){
-                        RoundIconButtons(
-                            imageVector = Icons.Default.Remove,
-                            onClick = { Log.d("Icon", "BillForm: Removed") })
-                        
-                        Text(text = "2",
-                            Modifier
-                                .align(alignment = Alignment.CenterVertically)
-                                .padding(start = 9.dp, end = 9.dp)
-                        )
-                        
-                        RoundIconButtons(
-                            imageVector = Icons.Default.Add,
-                            onClick = {Log.d("Icon", "BillForm: Added") })
-                    }
-                }
-                Row(
-                    modifier=Modifier
-                        .padding(horizontal = 3.dp,vertical=12.dp)
-                ) {
-                    Text(text = "Tip",
-                        modifier= Modifier.align(alignment = Alignment.CenterVertically))
-
-                    Spacer(modifier = Modifier.width(200.dp))
-
-                    Text(text = "$33.00",
-                         Modifier.align(alignment = Alignment.CenterVertically))
-
-                }
-
-            Column(
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(text="33%")
-
-                Spacer(modifier = Modifier.width(200.dp))
-
-                Slider(value = sliderPositionState.value ,
-                    onValueChange = {
-                        newVal ->
-                        sliderPositionState.value = newVal
-                        Log.d("Slider", "BillForm: $newVal")
-                    })
-
-            }
-
-        }
-
-        }
+    val tipAmountState = remember {
+        mutableStateOf(0.0)
+    }
+    val splitByState = remember {
+        mutableStateOf(1)
     }
 
+    val totalPerPersonState = remember {
+        mutableStateOf(0.0)
+    }
+    Column(
+        modifier = Modifier.padding(6.dp),
+        verticalArrangement = Arrangement.Top,
+        horizontalAlignment = Alignment.Start
+    ) {
+        TopHeader(totalPerPersonState.value)
+        Surface(
+            Modifier
+                .padding(2.dp)
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(CornerSize(8.dp)),
+            border = BorderStroke(width = 1.dp, color = Color.LightGray)
+        ) {
+            Column(
+                Modifier
+                    .padding(6.dp),
+                horizontalAlignment = Alignment.Start,
+                verticalArrangement = Arrangement.Top
+            ) {
+                InputField(
+                    Modifier
+                        .padding(2.dp)
+                        .fillMaxWidth(),
+                    valueState = totalBillState,
+                    labelId = "Enter Bill",
+                    enabled = true,
+                    isSingleLine = true,
+                    onAction = KeyboardActions {
+                        if (!validState) return@KeyboardActions
+                        onValChange(totalBillState.value.trim())
+
+                        keyboardController?.hide()
+                        totalPerPersonState.value =
+                            calculateTotalPerPerson(totalBillState.value.toDouble(), splitByState.value, tipPercentage)
+                    }
+                )
+                if (validState) {
+                    Row(
+                        Modifier
+                            .padding(3.dp),
+                        horizontalArrangement = Arrangement.Start
+                    ) {
+                        Text(
+                            text = "Split", Modifier.align(Alignment.CenterVertically)
+                        )
+
+                        Spacer(modifier = Modifier.width(120.dp))
+
+                        Row(
+                            Modifier
+                                .padding(horizontal = 3.dp),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            RoundIconButtons(
+                                imageVector = Icons.Default.Remove,
+                                onClick = {
+                                    splitByState.value =
+                                        if (splitByState.value > 1) splitByState.value - 1 else 1
+                                    totalPerPersonState.value =
+                                        calculateTotalPerPerson(
+                                            totalBillState.value.toDouble(),
+                                            splitByState.value,
+                                            tipPercentage
+                                        )
+                                })
+
+                            Text(
+                                text = "${splitByState.value}",
+                                Modifier
+                                    .align(alignment = Alignment.CenterVertically)
+                                    .padding(start = 9.dp, end = 9.dp)
+                            )
+
+                            RoundIconButtons(
+                                imageVector = Icons.Default.Add,
+                                onClick = {
+                                    splitByState.value += 1
+                                    totalPerPersonState.value =
+                                        calculateTotalPerPerson(
+                                            totalBillState.value.toDouble(),
+                                            splitByState.value,
+                                            tipPercentage
+                                        )
+                                })
+                        }
+                    }
+                    Row(
+                        modifier = Modifier
+                            .padding(horizontal = 3.dp, vertical = 12.dp)
+                    ) {
+                        Text(
+                            text = "Tip",
+                            modifier = Modifier.align(alignment = Alignment.CenterVertically)
+                        )
+                        Spacer(modifier = Modifier.width(200.dp))
+                        Text(
+                            text = "${tipAmountState.value}",
+                            Modifier.align(alignment = Alignment.CenterVertically)
+                        )
+
+                    }
+
+                    Column(
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(text = "$tipPercentage %")
+
+                        Spacer(modifier = Modifier.width(200.dp))
+
+                        Slider(
+                            value = sliderPositionState.value,
+                            onValueChange = { newVal ->
+                                val tipPercentage = (newVal * 100).toInt()
+
+                                val tipAmount = calculateTotalTip(totalBillState.value.toDouble(), tipPercentage)
+                                val totalPerPerson = calculateTotalPerPerson(
+                                    totalBillState.value.toDouble(),
+                                    splitByState.value,
+                                    tipPercentage
+                                )
+                                tipAmountState.value = tipAmount
+                                totalPerPersonState.value = totalPerPerson
+
+                                sliderPositionState.value = newVal
+                            },
+                            modifier = Modifier.padding(start = 16.dp, end = 16.dp),
+                            steps = 5
+                        )                    }
+                } else {
+                    Box() {}
+                }
+            }
+        }
+    }
+}
 
 
-//@Preview(showBackground = true)
+
+
+@Preview(showBackground = true)
 @Composable
 fun DefaultPreview() {
     TipAppTheme {
