@@ -263,10 +263,9 @@ fun BillForm(
 
                                 sliderPositionState.value = newVal
                             },
-                            modifier = Modifier.padding(start = 16.dp, end = 16.dp),
-                            steps = 5
-                        )                    }
-                } else {
+                            modifier = Modifier.padding(start = 16.dp, end = 16.dp)
+                        )
+                    }                } else {
                     Box() {}
                 }
             }
